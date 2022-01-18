@@ -30,7 +30,9 @@ class CodeCell:
         ['print("Hello world!")']
     """
     def __init__(self, id, source, execution_count):
-        pass
+        self.id = id
+        self.source = source
+        self.execution_count = execution_count
 
 class MarkdownCell:
     r"""A Cell of Markdown markup in a Jupyter notebook.
@@ -56,7 +58,8 @@ class MarkdownCell:
         ['Hello world!', '============', 'Print `Hello world!`:']
     """
     def __init__(self, id, source):
-        super().__init__(id, source)
+        self.id = id
+        self.source = source
 
 class Notebook:
     r"""A Jupyter Notebook
@@ -92,12 +95,13 @@ class Notebook:
     """
 
     def __init__(self, version, cells):
-        pass
+        self.version = version
+        self.cells = cells
     
     def __iter__(self):
         r"""Iterate the cells of the notebook.
         """
-        pass
+        return iter(self.cells)
 
 class NotebookLoader:
     r"""Loads a Jupyter Notebook from a file
@@ -117,12 +121,24 @@ class NotebookLoader:
             a23ab5ac
     """
     def __init__(self, filename):
-        pass
+        self.filename = filename
 
     def load(self):
         r"""Loads a Notebook instance from the file.
         """
-        pass
+        from notebook_v0 import load_ipynb, get_format_version
+        dic = load_ipynb(self.filename)
+        ver = get_format_version(dic)
+        cells = []
+        for cell in dic['cells']:
+            if cell['cell_type'] == 'code':
+                ce = CodeCell(cell['id'], cell['source'], cell['execution_count'])
+                cells.append(ce)
+            elif cell['cell_type'] == 'markdown':
+                ce = MarkdownCell(cell['id'], cell['source'])
+                cells.append(ce)
+        return Notebook(ver, cells)
+
 
 class Markdownizer:
     r"""Transforms a notebook to a pure markdown notebook.
@@ -147,12 +163,24 @@ class Markdownizer:
     """
 
     def __init__(self, notebook):
-        pass
+        self.notebook = notebook
 
     def markdownize(self):
         r"""Transforms the notebook to a pure markdown notebook.
         """
-        pass
+        nb = self.notebook
+        ver = nb.version
+        cells = []
+        for cell in nb:
+            if isinstance(cell, MarkdownCell):
+                cells.append(cell)
+            elif isinstance(cell, CodeCell):
+                id = cell.id
+                source = cell.source
+                sourcemd = ['<pre>'] + source + ['</pre>']
+                cells.append(MarkdownCell(id, sourcemd))
+        return Notebook(ver, cells)
+        
 
 class MarkdownLesser:
     r"""Removes markdown cells from a notebook.
@@ -170,7 +198,7 @@ class MarkdownLesser:
                 | print("Hello world!")
     """
     def __init__(self, notebook):
-        pass
+        self.notebook = notebook
 
     def remove_markdown_cells(self):
         r"""Removes markdown cells from the notebook.
@@ -178,7 +206,14 @@ class MarkdownLesser:
         Returns:
             Notebook: a Notebook instance with only code cells
         """
-        pass
+        nb = self.notebook
+        ver = nb.version
+        cellscode = []
+        for cell in nb:
+            if isinstance(cell, CodeCell):
+                cellscode.append(cell)
+        return Notebook(ver, cellscode)
+
 
 class PyPercentLoader:
     r"""Loads a Jupyter Notebook from a py-percent file.

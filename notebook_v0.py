@@ -50,7 +50,11 @@ def load_ipynb(filename):
          'nbformat': 4,
          'nbformat_minor': 5}
     """
-    pass
+    file = open(filename, 'r', encoding='utf-8')
+    dico = json.load(file)
+    return dico
+
+load_ipynb("samples/metadata.ipynb")
 
 
 def save_ipynb(ipynb, filename):
@@ -73,7 +77,9 @@ def save_ipynb(ipynb, filename):
         True
 
     """
-    pass
+    file = open(filename, 'w', encoding='utf-8')
+    json.dump(ipynb, file)
+    return file
 
 
 def get_format_version(ipynb):
@@ -90,7 +96,7 @@ def get_format_version(ipynb):
         >>> get_format_version(ipynb)
         '4.5'
     """
-    pass
+    return str(ipynb['nbformat']) + '.' + str(ipynb['nbformat_minor'])
 
 
 def get_metadata(ipynb):
@@ -114,7 +120,7 @@ def get_metadata(ipynb):
                            'pygments_lexer': 'ipython3',
                            'version': '3.9.7'}}
     """
-    pass
+    return ipynb['metadata']
 
 
 def get_cells(ipynb):
@@ -148,7 +154,7 @@ def get_cells(ipynb):
           'metadata': {},
           'source': ['Goodbye! 👋']}]
     """
-    pass
+    return ipynb['cells']
 
 
 def to_percent(ipynb):
@@ -175,7 +181,29 @@ def to_percent(ipynb):
         ...     with open(notebook_file.with_suffix(".py"), "w", encoding="utf-8") as output:
         ...         print(percent_code, file=output)
     """
-    pass
+    nb = ''
+    for cell in ipynb['cells']:
+        if cell['cell_type'] == 'markdown':
+            title = '# %% [markdown]\n'
+            body = ''
+            for (count, line) in enumerate(cell['source']):
+                if count == len(cell['source']) - 1: 
+                    body += '# ' + line + '\n'
+                else: 
+                    body += '# ' + line
+        elif cell['cell_type'] == 'code':
+            title = '# %%\n'
+            body = ''
+            for (count, line) in enumerate(cell['source']):
+                if count == len(cell['source']) - 1: 
+                    body += line + '\n'
+                else: 
+                    body += line
+        ce = title + body + '\n'
+        nb += ce
+    return nb
+
+
 
 
 def starboard_html(code):
@@ -288,7 +316,12 @@ def clear_outputs(ipynb):
          'nbformat': 4,
          'nbformat_minor': 5}
     """
-    pass
+    for cell in ipynb['cells']:
+        if cell['cell_type'] == 'code':
+            cell['execution_count'] = None
+            cell['outputs'] = []
+    return ipynb
+
 
 
 def get_stream(ipynb, stdout=True, stderr=False):
@@ -306,7 +339,20 @@ def get_stream(ipynb, stdout=True, stderr=False):
         👋 Hello world! 🌍
         🔥 This is fine. 🔥 (https://gunshowcomic.com/648)
     """
-    pass
+    string = ''
+    for cell in ipynb['cells']:
+        if stdout and stderr:
+            if cell['outputs'][0]['name'] == 'stdout' or cell['outputs'][0]['name'] == 'stderr':
+                string += cell['outputs'][0]['text'][0]
+        elif stdout: 
+            if cell['outputs'][0]['name'] == 'stdout':
+                string += cell['outputs'][0]['text'][0]
+        elif stderr:
+            if cell['outputs'][0]['name'] == 'stderr':
+                string += cell['outputs'][0]['text'][0]
+    return string
+
+
 
 
 def get_exceptions(ipynb):
@@ -328,7 +374,18 @@ def get_exceptions(ipynb):
         TypeError("unsupported operand type(s) for +: 'int' and 'str'")
         Warning('🌧️  light rain')
     """
-    pass
+    errors = []
+    for cell in ipynb['cells']:
+        if cell['cell_type'] == 'code':
+            if cell['outputs'][0]['output_type'] == 'error':
+                #errors.append(cell['outputs'][0]['ename'] + '(\"' + cell['outputs'][0]['evalue'] + '\")')
+                try: 
+                    print(1/0)
+                except ZeroDivisionError as e:
+                    print(cell['outputs'][0]['ename'] + '(\"' + cell['outputs'][0]['evalue'] + '\")')
+                    errors.append(e)
+                #errors.append(Exception(cell['outputs'][0]['ename'] + '(\"' + cell['outputs'][0]['evalue'] + '\")'))
+    return errors
 
 
 def get_images(ipynb):
@@ -352,4 +409,12 @@ def get_images(ipynb):
                 ...,
                 [ 14,  13,  19]]], dtype=uint8)
     """
-    pass
+    for cell in ipynb['cells']:
+        lis = []
+        if cell['cell_type'] == 'code':
+            if cell['outputs'] != [] and 'data' in cell['outputs'][0].keys():
+                if 'image/png' in cell['outputs'][0]['data'].keys():
+                    lis.append(np.array(PIL.Image.open(io.BytesIO(base64.b64decode(cell['outputs'][0]['data']['image/png'])))))
+    return lis
+
+# %%

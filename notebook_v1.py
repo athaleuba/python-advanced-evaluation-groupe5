@@ -33,7 +33,9 @@ class CodeCell:
     """
 
     def __init__(self, ipynb):
-        pass
+        self.id = ipynb['id']
+        self.source = ipynb['source']
+        self.execution_count = ipynb['execution_count']
 
 class MarkdownCell:
     r"""A Cell of Markdown markup in a Jupyter notebook.
@@ -63,7 +65,8 @@ class MarkdownCell:
     """
 
     def __init__(self, ipynb):
-        pass
+        self.id = ipynb['id']
+        self.source = ipynb['source']
 
 class Notebook:
     r"""A Jupyter Notebook.
@@ -95,7 +98,13 @@ class Notebook:
     """
 
     def __init__(self, ipynb):
-        pass
+        self.version = str(ipynb['nbformat']) + '.' + str(ipynb['nbformat_minor'])
+        self.cells = []
+        for cell in ipynb['cells']:
+            if cell['cell_type'] == 'code':
+                self.cells.append(CodeCell(cell))
+            elif cell['cell_type'] == 'markdown':
+                self.cells.append(MarkdownCell(cell))
 
     @staticmethod
     def from_file(filename):
@@ -107,7 +116,8 @@ class Notebook:
             >>> nb.version
             '4.5'
         """
-        pass
+        from notebook_v0 import load_ipynb
+        return Notebook(load_ipynb(filename))
 
     def __iter__(self):
         r"""Iterate the cells of the notebook.
@@ -199,7 +209,7 @@ class Serializer:
     """
 
     def __init__(self, notebook):
-        pass
+        self.notebook = notebook
 
     def serialize(self):
         r"""Serializes the notebook to a JSON object
@@ -207,7 +217,26 @@ class Serializer:
         Returns:
             dict: a dictionary representing the notebook.
         """
-        pass
+        nb = self.notebook
+        dic = {}
+        dic['cells'] = []
+        for cell in nb.cells:
+            ce = {}
+            if isinstance(cell, MarkdownCell):
+                ce['cell_type'] = 'markdown'
+            elif isinstance(cell, CodeCell):
+                ce['cell_type'] = 'code'
+                ce['execution_count'] = cell.execution_count
+            ce['id'] = cell.id
+            ce['metadata'] = {}
+            if isinstance(cell, CodeCell):
+                ce['outputs'] = []
+            ce['source'] = cell.source
+            dic['cells'].append(ce)
+        dic['metadata'] = {}
+        dic['nbformat'] = int(nb.version[0])
+        dic['nbformat_minor'] = int(nb.version[2])
+        return dic
 
     def to_file(self, filename):
         r"""Serializes the notebook to a file
@@ -227,7 +256,8 @@ class Serializer:
                 b777420a
                 a23ab5ac
         """
-        pass
+        from notebook_v0 import save_ipynb
+        return save.ipynb(self, filename)
 
 class Outliner:
     r"""Quickly outlines the strucure of the notebook in a readable format.
@@ -259,4 +289,25 @@ class Outliner:
         Returns:
             str: a string representing the outline of the notebook.
         """
-        pass
+        nb = self.notebook
+        title = f"Jupyter Notebook v{nb.version}\n"
+        body = ''
+        for cell in nb:
+            if isinstance(cell, CodeCell):
+                ce = f"└─▶ Code cell #{cell.id} ({cell.execution_count})\n"
+            elif isinstance(cell, MarkdownCell):
+                ce = f"└─▶ Markdown cell #{cell.id}\n"
+            if len(cell.source) == 1:
+                ce += "    | " + cell.source[0] + '\n'
+            else:
+                for count, line in enumerate(cell.source):
+                    if count == 0:
+                        ce += '    ┌  ' + line
+                    elif count == len(cell.source) - 1:
+                        ce += '    └  ' + line + '\n'
+                    else: 
+                        ce += '    │  ' + line
+            body += ce
+        return title + body
+
+
